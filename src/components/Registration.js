@@ -2,7 +2,8 @@ import {useState} from 'react'
 import {Button,Container,Row,Alert,Form,Spinner} from 'react-bootstrap'
 import {Link,useNavigate } from 'react-router-dom'
 import '../firebaseconfig'
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import { getAuth, createUserWithEmailAndPassword,sendEmailVerification,updateProfile  } from "firebase/auth";
+import { getDatabase, ref, set } from "firebase/database";
 const Registration = () => {
     let navigate = useNavigate();
     let [username,setUsername] = useState("")
@@ -16,6 +17,7 @@ const Registration = () => {
     let [cpassword,setCpassword] = useState("")
     let [errcpassword,setErrcpassword] = useState("")
     let [match,setmatch] = useState("")
+    let [sameemail,setSameemail] = useState("")
   
     let handleUsername = (e)=>{
       setUsername(e.target.value)
@@ -49,25 +51,53 @@ const Registration = () => {
     }else{
         setLoading(true)
         const auth = getAuth();
+        console.log(auth.currentUser)
         createUserWithEmailAndPassword(auth, email, password)
         .then((user) => {
-        //    console.log(user.user)
-            setUsername("")
-            setErrusername("")
-            setEmail("")
-            setErremail("")
-            setPassword("")
-            setErrpassword("")
-            setCpassword("")
-            setErrcpassword("")
-            setmatch("")
-            setLoading(false)
-            navigate("/login",{state:"Account Created SuccessFul"});
+          console.log(user)
+          updateProfile(auth.currentUser, {
+            displayName: username,
+            photoURL: 'https://th.bing.com/th/id/R.e5e4f3b22566b2ccea9bc6680987f913?rik=uVBstjRkbiuw7g&riu=http%3a%2f%2fwww.pngmart.com%2ffiles%2f12%2fBoy-Emoji-Avatar-PNG.png&ehk=SgpajcnA5u9WwI2Xh9dZlQv%2ftFhmblCXdw7OIQTR2dM%3d&risl=&pid=ImgRaw&r=0',
+            
+          }).then(() => {
+            const db = getDatabase();
+            set(ref(db, 'users/'+user.user.uid), {
+              username: username,
+              email: email,
+              id:user.user.uid,
+              img: user.user.photoURL
+            }).then(()=>{
+              setUsername("")
+              setErrusername("")
+              setEmail("")
+              setErremail("")
+              setPassword("")
+              setErrpassword("")
+              setCpassword("")
+              setErrcpassword("")
+              setmatch("")
+              setLoading(false)
+              sendEmailVerification(auth.currentUser)
+              .then(() => {
+                console.log("Mail chole gece")
+              });
+              navigate("/login",{state:"Account Created SuccessFul"});
+            })
+            
+          }).catch((error) => {
+            // An error occurred
+            // ...
+          });
+         
+        
         })
         .catch((error) => {
             const errorCode = error.code;
             const errorMessage = error.message;
-            console.log(error)
+            if(errorCode.includes("email")){
+              setSameemail("Email Already In Use")
+              setLoading(false)
+            }
         });
     }
   }
@@ -138,20 +168,31 @@ const Registration = () => {
                   :
                   ""
                   }
+                  {sameemail
+                  ?
+                  <Form.Text className="text-muted err">
+                    {sameemail}
+                  </Form.Text>
+                  :
+                  ""
+                  }
                 </Form.Group>
-
-                <Button onClick={handleSubmit} className="w-100" variant="primary" type="submit">
-                    {loading
+                {loading
+                    
                         ?
+                      <Button className="w-100" variant="primary" type="submit">
                         <Spinner animation="border" role="status">
                          <span className="visually-hidden">Loading...</span>
                         </Spinner>
+                      </Button>
                         :
-                        "Submit"
+                        <Button onClick={handleSubmit} className="w-100" variant="primary" type="submit">
+                          Submit
+                        </Button>
+                        
                     }
                   
                 
-                </Button>
                 <div  className='text-center mt-3'>
                 <Form.Text id="passwordHelpBlock" muted>
                     Already Have An Acoount? <Link to="/login">Login</Link>
